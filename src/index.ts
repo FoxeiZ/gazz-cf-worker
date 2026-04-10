@@ -4,6 +4,8 @@ export interface Env {
   GAS_CACHE: KVNamespace;
   DISCORD_WEBHOOK_URL: string;
   IS_DEV?: string;
+  TITLE_PREFIX?: string;
+  TITLE_SUFFIX?: string;
 }
 
 export default {
@@ -40,7 +42,9 @@ async function processPriceCheck(env: Env) {
       { petrolimex: petrolimexCached, pvoil: pvoilCached },
       triggerPetrolimex,
       triggerPVOil,
-      isDev
+      isDev,
+      env.TITLE_PREFIX,
+      env.TITLE_SUFFIX
     );
 
     if (!isDev) {
@@ -99,7 +103,9 @@ async function notifyDiscord(
   oldData: any,
   triggerPetrolimex: boolean,
   triggerPVOil: boolean,
-  isDev: boolean
+  isDev: boolean,
+  titlePrefix?: string,
+  titleSuffix?: string
 ) {
   const embeds = [];
 
@@ -158,8 +164,12 @@ async function notifyDiscord(
     randomTitle = "[dev] " + randomTitle;
   }
 
+  const prefix = titlePrefix ? `${titlePrefix} ` : "";
+  const suffix = titleSuffix ? ` ${titleSuffix}` : "";
+  const finalContent = `${prefix}${randomTitle}${suffix}`;
+
   const payload = {
-    content: randomTitle,
+    content: finalContent,
     embeds: embeds
   };
 
