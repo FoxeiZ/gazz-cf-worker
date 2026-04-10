@@ -180,7 +180,7 @@ export class GasPriceChecker {
 			embeds.push(this.getPVOilEmbed(newData, oldData));
 		}
 
-		if (!isTelegramChange) {
+		if (isTelegramChange) {
 			const ts = Math.floor(new Date(differentTelegramMessages[0].date).getTime() / 1000);
 			embeds.push({
 				title: 'Hữu duyên',
