@@ -13,41 +13,109 @@ export default {
 
 async function processPriceCheck(env: Env) {
   const currentData = await fetchAllPrices();
-  const currentHash = JSON.stringify(currentData);
-  
-  const cachedHash = await env.GAS_CACHE.get("latest_price_hash");
 
-  if (currentHash !== cachedHash) {
-    await notifyDiscord(env.DISCORD_WEBHOOK_URL, currentData);
-    await env.GAS_CACHE.put("latest_price_hash", currentHash);
+  const petrolimexCached = await env.GAS_CACHE.get("petrolimex_data", { type: "json" }) as any;
+  const pvoilCached = await env.GAS_CACHE.get("pvoil_data", { type: "json" }) as any;
+  const petrolimexCurrentStr = JSON.stringify(currentData.petrolimex);
+  const petrolimexCachedStr = JSON.stringify(petrolimexCached || {});
+  const pvoilCurrentStr = JSON.stringify(currentData.pvoil);
+  const pvoilCachedStr = JSON.stringify(pvoilCached || {});
+
+  const petrolimexChanged = petrolimexCurrentStr !== petrolimexCachedStr;
+  const pvoilChanged = pvoilCurrentStr !== pvoilCachedStr;
+
+  if (petrolimexChanged || pvoilChanged) {
+    await notifyDiscord(
+      env.DISCORD_WEBHOOK_URL,
+      currentData,
+      { petrolimex: petrolimexCached, pvoil: pvoilCached },
+      petrolimexChanged,
+      pvoilChanged
+    );
+
+    if (petrolimexChanged && !currentData.petrolimex.error) {
+      await env.GAS_CACHE.put("petrolimex_data", petrolimexCurrentStr);
+    }
+    if (pvoilChanged && !currentData.pvoil.error) {
+      await env.GAS_CACHE.put("pvoil_data", pvoilCurrentStr);
+    }
   }
 }
 
-async function notifyDiscord(webhookUrl: string, data: any) {
+function getTrendIndicator(newPriceStr?: string, oldPriceStr?: string): string {
+  if (!newPriceStr || !oldPriceStr) return "";
+
+  const newP = parseInt(newPriceStr.replace(/\./g, ''), 10);
+  const oldP = parseInt(oldPriceStr.replace(/\./g, ''), 10);
+
+  if (isNaN(newP) || isNaN(oldP) || newP === oldP) return "";
+
+  const diff = newP - oldP;
+  if (diff > 0) return ` 📈 (+${diff.toLocaleString('vi-VN')})`;
+  if (diff < 0) return ` 📉 (${diff.toLocaleString('vi-VN')})`; 
+  
+  return "";
+}
+
+async function notifyDiscord(
+  webhookUrl: string,
+  newData: any,
+  oldData: any,
+  petrolimexChanged: boolean,
+  pvoilChanged: boolean
+) {
+  const embeds = [];
+
+  if (petrolimexChanged && !newData.petrolimex.error) {
+    embeds.push({
+      title: "Petrolimex",
+      description: newData.petrolimex.updated_at || "N/A",
+      color: 16734296,
+      fields: newData.petrolimex.prices.map((newFuel: any) => {
+        const oldFuel = oldData.petrolimex?.prices?.find((p: any) => p.name === newFuel.name);
+        const trend1 = getTrendIndicator(newFuel.price_zone1, oldFuel?.price_zone1);
+        const trend2 = getTrendIndicator(newFuel.price_zone2, oldFuel?.price_zone2);
+
+        return {
+          name: newFuel.name,
+          value: `Vùng 1: ${newFuel.price_zone1} đ${trend1}\nVùng 2: ${newFuel.price_zone2 || "N/A"} đ${newFuel.price_zone2 ? trend2 : ""}`,
+          inline: true
+        };
+      })
+    });
+  }
+
+  if (pvoilChanged && !newData.pvoil.error) {
+    embeds.push({
+      title: "PVOil",
+      description: newData.pvoil.updated_at || "N/A",
+      color: 3447003,
+      fields: newData.pvoil.prices.map((newFuel: any) => {
+        const oldFuel = oldData.pvoil?.prices?.find((p: any) => p.name === newFuel.name);
+        const trend1 = getTrendIndicator(newFuel.price_zone1, oldFuel?.price_zone1);
+
+        return {
+          name: newFuel.name,
+          value: `${newFuel.price_zone1} đ${trend1}`,
+          inline: true
+        };
+      })
+    });
+  }
+
+  if (embeds.length === 0) return;
+
+  const titles = [
+    "huu duyen",
+    "xang dau thay doi roi nhe",
+    "con me no gia xang thay doi roi"
+  ];
+  
+  const randomTitle = titles[Math.floor(Math.random() * titles.length)];
+
   const payload = {
-    content: "con me no gia xang thay doi",
-    embeds: [
-      {
-        title: "Petrolimex",
-        description: data.petrolimex.updated_at || "N/A",
-        color: 16734296, // Orange
-        fields: data.petrolimex.prices.map((p: any) => ({
-          name: p.name,
-          value: `Vùng 1: ${p.price_zone1} VND\nVùng 2: ${p.price_zone2} VND`,
-          inline: true
-        }))
-      },
-      {
-        title: "PVOil",
-        description: data.pvoil.updated_at || "N/A",
-        color: 3447003, // Blue
-        fields: data.pvoil.prices.map((p: any) => ({
-          name: p.name,
-          value: `Price: ${p.price_zone1} VND`,
-          inline: true
-        }))
-      }
-    ]
+    content: randomTitle,
+    embeds: embeds
   };
 
   await fetch(webhookUrl, {

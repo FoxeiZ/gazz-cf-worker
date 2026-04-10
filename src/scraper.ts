@@ -70,8 +70,6 @@ async function scrapePVOil(): Promise<PriceData> {
     }
 
     const html = await res.text();
-
-    // Extract update timestamp
     const dateMatch = html.match(/<h4[^>]*class="[^"]*sub-box-title[^"]*"[^>]*>([\s\S]*?)<\/h4>/);
     if (dateMatch) {
       const text = dateMatch[1].replace(/<[^>]*>/g, '').trim();
@@ -79,8 +77,6 @@ async function scrapePVOil(): Promise<PriceData> {
         data.updated_at = text;
       }
     }
-
-    // Extract prices using chunked Regex
     const blockRegex = /<a[^>]*class="[^"]*gasoline-price-item[^"]*"[\s\S]*?<\/a>/g;
     const nameRegex = /<h3[^>]*class="[^"]*title[^"]*"[^>]*>([\s\S]*?)<\/h3>/;
     const priceRegex = /<span[^>]*class="[^"]*count[^"]*"[^>]*>([\s\S]*?)<\/span>/;
