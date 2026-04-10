@@ -148,34 +148,24 @@ export class GasPriceChecker {
 	}
 
 	private getTelegramEmbed(messages: TelegramMessage[], isTelegramChange: boolean) {
-		if (isTelegramChange) {
-			return [
-				{
-					title: 'Hữu duyên',
-					description: `Thêm ${messages.length} deal mới các ct ơi, cập nhật: <t:${new Date(messages[0].date).getTime() / 1000}:f> (<t:${new Date(messages[0].date).getTime() / 1000}:R>)`,
-					color: 42069,
-				},
-				...messages.map((message: TelegramMessage, index: number) => {
-					return {
-						title: `Deal mlem #${index + 1}`,
-						description: `${message.text}`,
-						color: Math.floor(Math.random() * 16777215),
-						thumbnail: {
-							url: message.image,
-						},
-						timestamp: new Date(message.date).toISOString(),
-					};
-				}),
-			];
-		} else {
-			return [
-				{
-					title: 'Không hữu duyên rr chủ tịch ơi',
-					description: '',
-					color: 13376026,
-				},
-			];
-		}
+		return [
+			{
+				title: 'Hữu duyên',
+				description: `Thêm ${messages.length} deal mới các ct ơi, cập nhật: <t:${new Date(messages[0].date).getTime() / 1000}:f> (<t:${new Date(messages[0].date).getTime() / 1000}:R>)`,
+				color: 42069,
+			},
+			...messages.map((message: TelegramMessage, index: number) => {
+				return {
+					title: `Deal mlem #${index + 1}`,
+					description: `${message.text}`,
+					color: Math.floor(Math.random() * 16777215),
+					thumbnail: {
+						url: message.image,
+					},
+					timestamp: new Date(message.date).toISOString(),
+				};
+			}),
+		];
 	}
 
 	async notifyDiscord({
@@ -211,7 +201,9 @@ export class GasPriceChecker {
 			embeds.push(this.getPVOilEmbed(newData, oldData));
 		}
 
-		embeds.push(...this.getTelegramEmbed(differentTelegramMessages, isTelegramChange));
+		if (isTelegramChange) {
+			embeds.push(...this.getTelegramEmbed(differentTelegramMessages, isTelegramChange));
+		}
 
 		if (embeds.length === 0) return;
 
@@ -267,7 +259,7 @@ export class GasPriceChecker {
 
 	private getDifferentTelegramMessages(messages: TelegramMessage[], cachedMessages: string[]) {
 		const newMessages = messages.filter((message) => !cachedMessages.includes(message.id));
-		const newLatestMessage = newMessages.filter((message) => new Date(message.date).getTime() > Date.now() - 1000 * 60 * 60 * 1);
+		const newLatestMessage = newMessages.filter((message) => new Date(message.date).getTime() > Date.now() - 1000 * 60 * 5);
 		return newLatestMessage;
 	}
 }
