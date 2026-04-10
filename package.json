@@ -1,0 +1,13 @@
+{
+  "name": "yellow-term-9fd9",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "start": "wrangler dev"
+  },
+  "devDependencies": {
+    "wrangler": "^4.81.1"
+  }
+}

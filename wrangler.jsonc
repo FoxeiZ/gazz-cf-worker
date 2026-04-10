@@ -1,0 +1,33 @@
+{
+  "name": "yellow-term-9fd9",
+  "main": "src/worker.js",
+  "workers_dev": true,
+  "preview_urls": false,
+  "compatibility_date": "2026-04-10",
+  "triggers": {
+    "crons": [
+      "0 * * * *"
+    ]
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "persist": true,
+      "invocation_logs": true
+    },
+    "traces": {
+      "enabled": false,
+      "persist": true,
+      "head_sampling_rate": 1
+    }
+  },
+  "kv_namespaces": [
+    {
+      "id": "b4bb8000afa94a968aabbadddcb997bb",
+      "binding": "GAS_CACHE"
+    }
+  ]
+}
