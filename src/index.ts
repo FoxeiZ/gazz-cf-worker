@@ -14,7 +14,11 @@ export default {
 
 async function processPriceCheck(env: Env) {
   const isDev = env.IS_DEV === "true";
-  const currentData = await fetchAllPrices();
+  let currentData = await fetchAllPrices();
+
+  if (isDev) {
+    currentData = simulateDevPriceChanges(currentData);
+  }
 
   const petrolimexCached = await env.GAS_CACHE.get("petrolimex_data", { type: "json" }) as any;
   const pvoilCached = await env.GAS_CACHE.get("pvoil_data", { type: "json" }) as any;
@@ -39,11 +43,13 @@ async function processPriceCheck(env: Env) {
       isDev
     );
 
-    if (petrolimexChanged && !currentData.petrolimex.error) {
-      await env.GAS_CACHE.put("petrolimex_data", petrolimexCurrentStr);
-    }
-    if (pvoilChanged && !currentData.pvoil.error) {
-      await env.GAS_CACHE.put("pvoil_data", pvoilCurrentStr);
+    if (!isDev) {
+      if (petrolimexChanged && !currentData.petrolimex.error) {
+        await env.GAS_CACHE.put("petrolimex_data", petrolimexCurrentStr);
+      }
+      if (pvoilChanged && !currentData.pvoil.error) {
+        await env.GAS_CACHE.put("pvoil_data", pvoilCurrentStr);
+      }
     }
   }
 }
@@ -62,6 +68,31 @@ function getTrendIndicator(newPriceStr?: string, oldPriceStr?: string): string {
   return "";
 }
 
+function parsePetrolimexDate(dateStr?: string): number | null {
+  if (!dateStr) return null;
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return null;
+  return Math.floor(date.getTime() / 1000);
+}
+
+function parsePVOilDate(dateStr?: string): number | null {
+  if (!dateStr) return null;
+
+  const match = dateStr.match(/(\d{2}:\d{2})\s*ngày\s*(\d{2})\/(\d{2})\/(\d{4})/);
+  if (!match) return null;
+
+  const time = match[1];
+  const day = match[2];
+  const month = match[3];
+  const year = match[4];
+
+  const isoStr = `${year}-${month}-${day}T${time}:00+07:00`;
+  const date = new Date(isoStr);
+  
+  if (isNaN(date.getTime())) return null;
+  return Math.floor(date.getTime() / 1000);
+}
+
 async function notifyDiscord(
   webhookUrl: string,
   newData: any,
@@ -73,9 +104,12 @@ async function notifyDiscord(
   const embeds = [];
 
   if (triggerPetrolimex && !newData.petrolimex.error) {
+    const ts = parsePetrolimexDate(newData.petrolimex.updated_at);
+    const desc = ts ? `Cập nhật: <t:${ts}:f> (<t:${ts}:R>)` : (newData.petrolimex.updated_at || "N/A");
+
     embeds.push({
       title: "Petrolimex",
-      description: newData.petrolimex.updated_at || "N/A",
+      description: desc,
       color: 16734296,
       fields: newData.petrolimex.prices.map((newFuel: any) => {
         const oldFuel = oldData.petrolimex?.prices?.find((p: any) => p.name === newFuel.name);
@@ -92,9 +126,12 @@ async function notifyDiscord(
   }
 
   if (triggerPVOil && !newData.pvoil.error) {
+    const ts = parsePVOilDate(newData.pvoil.updated_at);
+    const desc = ts ? `Cập nhật: <t:${ts}:f> (<t:${ts}:R>)` : (newData.pvoil.updated_at || "N/A");
+
     embeds.push({
       title: "PVOil",
-      description: newData.pvoil.updated_at || "N/A",
+      description: desc,
       color: 3447003,
       fields: newData.pvoil.prices.map((newFuel: any) => {
         const oldFuel = oldData.pvoil?.prices?.find((p: any) => p.name === newFuel.name);
@@ -102,7 +139,7 @@ async function notifyDiscord(
 
         return {
           name: newFuel.name,
-          value: `${newFuel.price_zone1} đ${trend1}`,
+          value: `Price: ${newFuel.price_zone1} đ${trend1}`,
           inline: true
         };
       })
@@ -131,4 +168,32 @@ async function notifyDiscord(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });
+}
+
+function simulateDevPriceChanges(data: any): any {
+  const cloned = JSON.parse(JSON.stringify(data));
+
+  const modifyPrice = (priceStr?: string) => {
+    if (!priceStr) return priceStr;
+    let p = parseInt(priceStr.replace(/\./g, ''), 10);
+    if (isNaN(p)) return priceStr;
+
+    const delta = (Math.floor(Math.random() * 10) + 1) * 100;
+    const sign = Math.random() > 0.5 ? 1 : -1;
+    p += (delta * sign);
+
+    const s = p.toString();
+    return s.length > 3 ? s.slice(0, -3) + "." + s.slice(-3) : s;
+  };
+
+  if (cloned.petrolimex?.prices?.length > 0) {
+    cloned.petrolimex.prices[0].price_zone1 = modifyPrice(cloned.petrolimex.prices[0].price_zone1);
+    cloned.petrolimex.prices[0].price_zone2 = modifyPrice(cloned.petrolimex.prices[0].price_zone2);
+  }
+
+  if (cloned.pvoil?.prices?.length > 0) {
+    cloned.pvoil.prices[0].price_zone1 = modifyPrice(cloned.pvoil.prices[0].price_zone1);
+  }
+
+  return cloned;
 }
