@@ -1,6 +1,6 @@
 {
   "name": "yellow-term-9fd9",
-  "main": "src/worker.js",
+  "main": "src/index.ts",
   "workers_dev": true,
   "preview_urls": false,
   "compatibility_date": "2026-04-10",
