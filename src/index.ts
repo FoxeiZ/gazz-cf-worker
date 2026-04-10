@@ -3,6 +3,7 @@ import { fetchAllPrices } from "./scraper";
 export interface Env {
   GAS_CACHE: KVNamespace;
   DISCORD_WEBHOOK_URL: string;
+  IS_DEV?: string;
 }
 
 export default {
@@ -12,6 +13,7 @@ export default {
 };
 
 async function processPriceCheck(env: Env) {
+  const isDev = env.IS_DEV === "true";
   const currentData = await fetchAllPrices();
 
   const petrolimexCached = await env.GAS_CACHE.get("petrolimex_data", { type: "json" }) as any;
@@ -24,13 +26,17 @@ async function processPriceCheck(env: Env) {
   const petrolimexChanged = petrolimexCurrentStr !== petrolimexCachedStr;
   const pvoilChanged = pvoilCurrentStr !== pvoilCachedStr;
 
-  if (petrolimexChanged || pvoilChanged) {
+  const triggerPetrolimex = petrolimexChanged || isDev;
+  const triggerPVOil = pvoilChanged || isDev;
+
+  if (triggerPetrolimex || triggerPVOil) {
     await notifyDiscord(
       env.DISCORD_WEBHOOK_URL,
       currentData,
       { petrolimex: petrolimexCached, pvoil: pvoilCached },
-      petrolimexChanged,
-      pvoilChanged
+      triggerPetrolimex,
+      triggerPVOil,
+      isDev
     );
 
     if (petrolimexChanged && !currentData.petrolimex.error) {
@@ -52,8 +58,7 @@ function getTrendIndicator(newPriceStr?: string, oldPriceStr?: string): string {
 
   const diff = newP - oldP;
   if (diff > 0) return ` 📈 (+${diff.toLocaleString('vi-VN')})`;
-  if (diff < 0) return ` 📉 (${diff.toLocaleString('vi-VN')})`; 
-  
+  if (diff < 0) return ` 📉 (${diff.toLocaleString('vi-VN')})`;
   return "";
 }
 
@@ -61,12 +66,13 @@ async function notifyDiscord(
   webhookUrl: string,
   newData: any,
   oldData: any,
-  petrolimexChanged: boolean,
-  pvoilChanged: boolean
+  triggerPetrolimex: boolean,
+  triggerPVOil: boolean,
+  isDev: boolean
 ) {
   const embeds = [];
 
-  if (petrolimexChanged && !newData.petrolimex.error) {
+  if (triggerPetrolimex && !newData.petrolimex.error) {
     embeds.push({
       title: "Petrolimex",
       description: newData.petrolimex.updated_at || "N/A",
@@ -85,7 +91,7 @@ async function notifyDiscord(
     });
   }
 
-  if (pvoilChanged && !newData.pvoil.error) {
+  if (triggerPVOil && !newData.pvoil.error) {
     embeds.push({
       title: "PVOil",
       description: newData.pvoil.updated_at || "N/A",
@@ -110,8 +116,10 @@ async function notifyDiscord(
     "xang dau thay doi roi nhe",
     "con me no gia xang thay doi roi"
   ];
-  
-  const randomTitle = titles[Math.floor(Math.random() * titles.length)];
+  let randomTitle = titles[Math.floor(Math.random() * titles.length)];
+  if (isDev) {
+    randomTitle = "[dev] " + randomTitle;
+  }
 
   const payload = {
     content: randomTitle,
