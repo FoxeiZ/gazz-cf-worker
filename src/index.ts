@@ -147,6 +147,37 @@ export class GasPriceChecker {
 		};
 	}
 
+	private getTelegramEmbed(messages: TelegramMessage[], isTelegramChange: boolean) {
+		if (isTelegramChange) {
+			return [
+				{
+					title: 'Hữu duyên',
+					description: `Thêm ${messages.length} deal mới các ct ơi, cập nhật: <t:${new Date(messages[0].date).getTime() / 1000}:f> (<t:${new Date(messages[0].date).getTime() / 1000}:R>)`,
+					color: 42069,
+				},
+				...messages.map((message: TelegramMessage, index: number) => {
+					return {
+						title: `Deal mlem #${index + 1}`,
+						description: `${message.text}`,
+						color: Math.floor(Math.random() * 16777215),
+						thumbnail: {
+							url: message.image,
+						},
+						timestamp: new Date(message.date).toISOString(),
+					};
+				}),
+			];
+		} else {
+			return [
+				{
+					title: 'Không hữu duyên rr chủ tịch ơi',
+					description: '',
+					color: 13376026,
+				},
+			];
+		}
+	}
+
 	async notifyDiscord({
 		webhookUrl,
 		newData,
@@ -180,26 +211,7 @@ export class GasPriceChecker {
 			embeds.push(this.getPVOilEmbed(newData, oldData));
 		}
 
-		if (isTelegramChange) {
-			const ts = Math.floor(new Date(differentTelegramMessages[0].date).getTime() / 1000);
-			embeds.push({
-				title: 'Hữu duyên',
-				description: `Có ${differentTelegramMessages.length} tin nhắn mới, cập nhật: <t:${ts}:f> (<t:${ts}:R>)`,
-				color: 42069,
-				fields: differentTelegramMessages.map((message: TelegramMessage) => {
-					return {
-						name: 'Chủ tịch',
-						value: `${message.text} <t:${new Date(message.date).getTime() / 1000}:R>`,
-					};
-				}),
-			});
-		} else {
-			embeds.push({
-				title: 'Không hữu duyên rr chủ tịch ơi',
-				description: '',
-				color: 13376026,
-			});
-		}
+		embeds.push(...this.getTelegramEmbed(differentTelegramMessages, isTelegramChange));
 
 		if (embeds.length === 0) return;
 

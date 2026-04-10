@@ -23,12 +23,24 @@ const scrapeTelegram = async () => {
     })
     .on(".tgme_widget_message_text", {
       text(t) {
-        currentMessage.text += t.text;
+        if (t.text.trim() === "") return;
+        if (!t.lastInTextNode) {
+          currentMessage.text += t.text + "\n";
+        }
       }
     })
     .on(".tgme_widget_message_date time", {
       element(el) {
         currentMessage.date = el.getAttribute("datetime") || "";
+      }
+    })
+    .on(".tgme_widget_message_photo_wrap", {
+      element(el) {
+        const style = el.getAttribute("style") || "";
+        const match = style.match(/https?:\/\/[^']+/);
+        if (match && match[0]) {
+          currentMessage.image = match[0];
+        }
       }
     });
 

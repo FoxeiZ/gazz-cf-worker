@@ -14,6 +14,7 @@ export interface TelegramMessage {
   id: string;
   text: string;
   date: string;
+  image?: string;
 }
 
 export interface PriceResponse {
